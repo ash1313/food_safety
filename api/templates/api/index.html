@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>식품 안전 데이터 조회</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .search-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .search-container input {
+            padding: 10px;
+            font-size: 16px;
+            width: 30%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-right: 10px;
+        }
+
+        .search-container label {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tr:hover {
+            background-color: #ddd;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #888;
+            font-size: 18px;
+        }
+
+        .login-container {
+            width: 300px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+
+        .error-message {
+            color: red;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>식품 안전 데이터 조회</h1>
+
+    {% if not authorized %}
+        <!-- 비밀번호 입력 폼 -->
+        <div class="login-container">
+            <h2>비밀번호 입력</h2>
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <input type="password" name="password" placeholder="비밀번호" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit">확인</button>
+                </div>
+            </form>
+
+            {% if request.session.authorized == false %}
+                <p class="error-message">잘못된 비밀번호입니다. 다시 시도해주세요.</p>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- 데이터 조회 테이블 -->
+        <div class="search-container">
+            <label for="searchIndustry">업종명 검색:</label>
+            <input type="text" id="searchIndustry" onkeyup="searchTable('industry')" placeholder="업종명 검색">
+            <label for="searchAddress">주소 검색:</label>
+            <input type="text" id="searchAddress" onkeyup="searchTable('address')" placeholder="주소 검색">
+        </div>
+        
+        {% if data %}
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>순번</th>
+                        <th>업소명</th>
+                        <th>업종명</th>
+                        <th>인허가번호</th>
+                        <th>전화번호</th>
+                        <th>주소</th>
+                        <th>변경일자</th>
+                        <th>변경전 내용</th>
+                        <th>변경후 내용</th>
+                        <th>변경사유</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td> <!-- 순번 표시 -->
+                            <td>{{ item.BSSH_NM }}</td>
+                            <td>{{ item.INDUTY_CD_NM }}</td>
+                            <td>{{ item.LCNS_NO }}</td>
+                            <td>{{ item.TELNO }}</td>
+                            <td>{{ item.SITE_ADDR }}</td>
+                            <td>{{ item.CHNG_DT }}</td>
+                            <td>{{ item.CHNG_BF_CN }}</td>
+                            <td>{{ item.CHNG_AF_CN }}</td>
+                            <td>{{ item.CHNG_PRVNS }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-data">데이터가 없습니다.</p>
+        {% endif %}
+    {% endif %}
+
+    <script>
+        function searchTable(type) {
+            var inputIndustry = document.getElementById('searchIndustry').value.toUpperCase();
+            var inputAddress = document.getElementById('searchAddress').value.toUpperCase();
+            var table = document.getElementById('dataTable');
+            var tr = table.getElementsByTagName('tr');
+
+            for (var i = 1; i < tr.length; i++) {
+                var td = tr[i].getElementsByTagName('td');
+                var industry = td[2] ? td[2].textContent || td[2].innerText : '';
+                var address = td[5] ? td[5].textContent || td[5].innerText : '';
+
+                var showRow = true;
+
+                if (type === 'industry' && inputIndustry && industry.toUpperCase().indexOf(inputIndustry) === -1) {
+                    showRow = false;
+                }
+
+                if (type === 'address' && inputAddress && address.toUpperCase().indexOf(inputAddress) === -1) {
+                    showRow = false;
+                }
+
+                tr[i].style.display = showRow ? "" : "none";
+            }
+        }
+    </script>
+
+</body>
+</html>
