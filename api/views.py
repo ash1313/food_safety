@@ -7,6 +7,7 @@ import logging
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
+from datetime import datetime
 
 def fetch_data(request):
     # 비밀번호 확인
@@ -59,6 +60,16 @@ def fetch_data(request):
             
             # 데이터베이스에 저장
             for item in items:
+                # 날짜 형식 변환
+                chng_dt = item.get('CHNG_DT', '')
+                if chng_dt:
+                    try:
+                        # 'YYYYMMDD' 형식에서 'YYYY-MM-DD' 형식으로 변환
+                        chng_dt = datetime.strptime(chng_dt, '%Y%m%d').strftime('%Y-%m-%d')
+                    except ValueError as e:
+                        logger.error(f"날짜 형식 변환 오류: {e}")
+                        chng_dt = None  # 날짜 변환에 실패하면 None으로 설정
+
                 FoodSafetyData.objects.update_or_create(
                     LCNS_NO=item.get('LCNS_NO'),
                     defaults={
@@ -66,7 +77,7 @@ def fetch_data(request):
                         'INDUTY_CD_NM': item.get('INDUTY_CD_NM'),
                         'TELNO': item.get('TELNO'),
                         'SITE_ADDR': item.get('SITE_ADDR'),
-                        'CHNG_DT': item.get('CHNG_DT'),
+                        'CHNG_DT': chng_dt,
                         'CHNG_BF_CN': item.get('CHNG_BF_CN'),
                         'CHNG_AF_CN': item.get('CHNG_AF_CN'),
                         'CHNG_PRVNS': item.get('CHNG_PRVNS'),
