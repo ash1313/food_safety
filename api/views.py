@@ -1,8 +1,10 @@
-from django.conf import settings
+from django.shortcuts import render
 import requests
-import logging
 from .models import FoodSafetyData
-from django.shortcuts import render, redirect
+from .forms import SearchForm
+from django.conf import settings
+import logging
+
 # 로깅 설정
 logger = logging.getLogger(__name__)
 
@@ -19,15 +21,23 @@ def fetch_data(request):
     
     # 인증 여부 확인
     if not request.session.get('authorized', False):
-        # 인증이 안된 상태에서 비밀번호 입력 폼만 보여줌
         return render(request, 'api/index.html', {'authorized': False})
     
-    # 인증이 된 경우, 식품 안전 데이터 조회
-    keyId = settings.API_KEY  # secrets.json에서 읽은 keyId 사용
+    # 폼 처리
+    form = SearchForm(request.POST or None)
+
+    # 기본값 설정
+    startIdx = 1
+    endIdx = 1000
+
+    if form.is_valid():
+        startIdx = form.cleaned_data['start_idx']
+        endIdx = form.cleaned_data['end_idx']
+
+    # API 호출
+    keyId = settings.API_KEY  # API 키
     serviceId = 'I2861'  # 서비스 ID
     dataType = 'json'  # 응답 형식
-    startIdx = '1'  # 시작 인덱스
-    endIdx = '1000'  # 종료 인덱스
 
     base_url = f"http://openapi.foodsafetykorea.go.kr/api/{keyId}/{serviceId}/{dataType}/{startIdx}/{endIdx}"
 
@@ -43,12 +53,11 @@ def fetch_data(request):
         # JSON 데이터 처리
         data = response.json()
 
-        # 응답에서 'row' 키를 확인하고, 해당 값이 있는 경우에만 데이터 처리
         if 'I2861' in data and 'row' in data['I2861']:
-            items = data['I2861']['row']  # 데이터 항목
+            items = data['I2861']['row']
             logger.info(f"API에서 반환된 데이터: {items}")
             
-            # 데이터베이스에 저장 (필요한 경우)
+            # 데이터베이스에 저장
             for item in items:
                 FoodSafetyData.objects.update_or_create(
                     LCNS_NO=item.get('LCNS_NO'),
@@ -69,9 +78,8 @@ def fetch_data(request):
             logger.info("API에서 반환된 데이터가 없습니다.")
 
         # 템플릿에 데이터 전달
-        return render(request, 'api/index.html', {'data': items, 'authorized': True})
+        return render(request, 'api/index.html', {'data': items, 'authorized': True, 'form': form})
 
     except requests.exceptions.RequestException as e:
-        # 요청 중 오류가 발생한 경우
         logger.error(f"API 요청 중 오류 발생: {str(e)}")
-        return render(request, 'api/index.html', {'data': [], 'authorized': True})
+        return render(request, 'api/index.html', {'data': [], 'authorized': True, 'form': form})
